@@ -8,52 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Models\User; // Import your User model
-use Illuminate\Support\Facades\Log;
+use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
-/**
- * @OA\PathItem(
- *     path="/api/auth"
- * )
- */
 class AuthController extends Controller
 {
-    /**
-     * @OA\Post(
-     *     path="/login",
-     *     summary="Login Process",
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"email", "password"},
-     *             @OA\Property(property="email", type="string", format="email", example="user@example.com"),
-     *             @OA\Property(property="password", type="string", format="password", example="secret")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Successful login",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Login successful"),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", type="object", ref="#/components/schemas/User"),
-     *                 @OA\Property(property="token", type="string", example="your_auth_token")
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=401,
-     *         description="Invalid credentials",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Invalid credentials")
-     *         )
-     *     )
-     * )
-     */
     public function login(Request $request)
     {
         try {
@@ -71,6 +31,12 @@ class AuthController extends Controller
                     'data' => null
                 ]);
             }
+
+            // Ubah path foto jadi URL
+            if ($user->foto) {
+                $user->foto = url($user->foto);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'success',
@@ -85,41 +51,6 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * @OA\Post(
-     *     path="/register",
-     *     summary="Register Process",
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"name", "email", "password", "foto"},
-     *             @OA\Property(property="name", type="string", example="John Doe"),
-     *             @OA\Property(property="email", type="string", format="email", example="user@example.com"),
-     *             @OA\Property(property="password", type="string", format="password", example="secret"),
-     *             @OA\Property(property="foto", type="string", format="base64", example="base64encodedstring")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=201,
-     *         description="Successful registration",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Registration successful"),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="user", type="object", ref="#/components/schemas/User")
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=400,
-     *         description="Invalid data",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Invalid data")
-     *         )
-     *     )
-     * )
-     */
     public function register(Request $request)
     {
         $data = $request->validate([
@@ -130,19 +61,14 @@ class AuthController extends Controller
             'nohp' => 'required'
         ]);
 
-        // Decode the base64 image
         $foto = $request->input('foto');
-        $foto = str_replace('data:image/png;base64,', '', $foto);
-        $foto = str_replace('data:image/jpg;base64,', '', $foto);
-        $foto = str_replace('data:image/jpeg;base64,', '', $foto);
+        $foto = str_replace(['data:image/png;base64,', 'data:image/jpg;base64,', 'data:image/jpeg;base64,'], '', $foto);
         $foto = str_replace(' ', '+', $foto);
         $fotoName = Str::slug($data['username']) . '_' . time() . '.png';
 
-        // Save the image to public folder
         $filePath = public_path('user_profile/' . $fotoName);
         file_put_contents($filePath, base64_decode($foto));
 
-        // Create the user
         $user = User::create([
             'name' => $data['username'],
             'email' => $data['email'],
@@ -150,6 +76,11 @@ class AuthController extends Controller
             'foto' => 'user_profile/' . $fotoName,
             'nohp' => $data['nohp']
         ]);
+
+        // Ubah path foto jadi URL
+        if ($user->foto) {
+            $user->foto = url($user->foto);
+        }
 
         return response()->json([
             'status' => true,
@@ -164,6 +95,12 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
+
+            // Ubah path foto jadi URL
+            if ($user->foto) {
+                $user->foto = url($user->foto);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'success',
@@ -221,6 +158,7 @@ class AuthController extends Controller
             ], 200);
         }
     }
+
     function generateFourDigitCode()
     {
         return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
@@ -258,7 +196,13 @@ class AuthController extends Controller
     {
         try {
             $account = User::where('code_verify', '=', $request->code)->first();
-            $user = User::where('email','=',$account->email)->first();
+            $user = User::where('email', '=', $account->email)->first();
+
+            // Ubah path foto jadi URL
+            if ($user->foto) {
+                $user->foto = url($user->foto);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'success',
